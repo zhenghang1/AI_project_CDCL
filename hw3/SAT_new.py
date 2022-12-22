@@ -104,7 +104,7 @@ class Statistics:
         # Print the stored statistics with appropriate labels of what the stats signify
         print("=========================== STATISTICS ===============================")
         print("Solving formula from file: ",self._input_file)
-        print("Vars:{}, Clauses:{} Stored Clauses:{}".format(str(self._num_vars),str(self._num_orig_clauses),str(self._num_clauses)))
+        print("Vars:{}, Clauses:{} Stored Clauses:{}".format(str(self._num_vars),str(self._num_clauses),str(self._num_clauses))) # self._num_orig_clauses
         print("Input Reading Time: ",self._read_time - self._start_time)
         print("-------------------------------")
         print("Restarts: ",self._num_restarts)
@@ -411,5 +411,3 @@ class SAT:
 
                 # Propagate watch.
                 conflict_ante = self.bcp(len(self._assignment))
-
-        return self
