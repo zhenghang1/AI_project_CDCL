@@ -1,64 +1,42 @@
-from SAT_new import SAT
-from utils import read_cnf
+from SAT import SAT
 import argparse
-import sys
+from utils import Test
+import time
 
-def test(sentence, _assignment):
-    """test the correctness of the result"""
-    assignment = [a[0] for a in _assignment]
-    FLAG = True
-    for clause in sentence:
-        flag = False
-        for lit in clause:
-            if lit in assignment:
-                flag = True
-                break
-        FLAG = FLAG & flag
-        if FLAG == False:
-            break
-    if FLAG:
-        print("Yeh! The result is correct.")
-    else:
-        print("Nop! The result is wrong.")
+parser = argparse.ArgumentParser()
+parser.add_argument('-i','--input_file', default='examples/and1.cnf', type=str, help='path to input cnf file')
+parser.add_argument('-d','--decider',default='VSIDS',type=str,help='type of decider, should be one of ["VSIDS","LRB","CHB"]')
+parser.add_argument('-r','--restarter',default='LUBY',type=str,help='type of restarter, should be one of ["GEOMETRIC","LUBY","NO_RESTART"]')
+parser.add_argument('-t','--test',default='True',type=bool,help='Boolean flag indicating whether taking a test or not, should be one of [""True","False"]')
 
-def test_rep_assign(_assignment):
-    """test whether a variable has been assigned twice"""
-    """output the number of 0's in `assignment`. 
-       If that doesn't equal to 'num_var - len(var)', where `var` is the number of actual number of variables, then the result is definitely wrong"""
-    assignment = [a[0] for a in _assignment]
-    v_count = {}
-    for a in assignment:
-        v_count[abs(a)] = v_count.get(abs(a), 0) + 1
-    for v, count in v_count.items():
-        if (count > 1) and (v != 0):
-            print("Variable X_" + str(v) + " has been assigned " + str(count) + " times!")
-    if v_count.get(0, 0) > 0:
-        print("Totally " + str(v_count[0]) + " 0's has been 'assigned'.")
+args = parser.parse_args()
 
 if __name__ == "__main__":
     # File name of the file containing the input problem
-    input_file_name = sys.argv[1]
+    input_file_name = args.input_file
     
     # Initial Decision Heuristic to be used
-    decider_to_use = sys.argv[2]
+    decider_to_use = args.decider
     
     # Restart Heuristic to be used
     # None if no restart strategy to be used
-    restarter_to_use = sys.argv[3]
+    restarter_to_use = args.restarter
 
-    # Open file
-    with open(input_file_name, "r") as f:
-        sentence, num_vars = read_cnf(f)
-    
     # Create the SAT class and solve!
-    sat = SAT(decider_to_use, restarter_to_use, sentence, num_vars)
-    sat.cdcl_run()
+    sat = SAT(decider_to_use, restarter_to_use,)
+    sat.solve(input_file_name)
 
-    if sat._assignment is None:
-        print("No solution found")
-    else:
-        print(f"Successfully found a solution: {sat._assignment}")
-        print(f"decided_idxs: {sat._decided_idxs}")
-        test(sentence, sat._assignment)
-        test_rep_assign(sat._assignment)
-    sat._stats.print_stats()
+    if args.test:
+        start = time.time()
+        print('\n',"============================= TEST ===================================")
+        if sat.stats._result == "SAT":
+            t = Test(input_file_name, sat._assignment)
+            t.test_correctness()
+            t.test_rep_assign()
+        else:
+            print("The result is UNSAT and No test could be done!")
+        end = time.time()
+        print("Testing time:",end-start)
+        print("============================= TEST ===================================",'\n')
+
+    sat.stats.print_stats()
