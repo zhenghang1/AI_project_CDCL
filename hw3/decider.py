@@ -4,7 +4,7 @@ from utils import PriorityQueue
 class Decider:
 
     def __init__(self, decider, sentence, num_vars) -> None:
-        if decider is None or decider not in ["VSIDS", "LRB", "CHB"]:
+        if decider is None or decider not in ["LRB", "CHB","VSIDS"]:
             raise ValueError('The decider must be one from the list ["VSIDS","LRB","CHB"]')
 
         self.num_vars = num_vars
@@ -17,6 +17,7 @@ class Decider:
         for clause in sentence:
             for lit in clause:
                 self.vsids_scores[lit] += 1
+        self.vsids_priority_queue = PriorityQueue(self.vsids_scores)
 
         # CHB init
         self.plays = set()
@@ -60,11 +61,8 @@ class Decider:
                 self.vsids_priority_queue.remove(var)
             else:
                 self.vsids_priority_queue.remove(var+self.num_vars)
-            # also change CHB
-            # self.chb_priority_queue.remove(var)
+
             self.chb_phase[var] = value_to_set
-            # also change LRB
-            # self.lrb_priority_queue.remove(var)
             self.lrb_phase[var] = value_to_set
 
         elif self.curr_decider == "CHB":
@@ -72,11 +70,9 @@ class Decider:
             if var == -1:
                 return -1, None
             value_to_set = bool(self.chb_phase[var])
-            # also change vsids
-            # self.vsids_priority_queue.remove(var)
-            # self.vsids_priority_queue.remove(var+self.num_vars)
-            # also change LRB
-            # self.lrb_priority_queue.remove(var)
+
+            self.vsids_priority_queue.remove(var)
+            self.vsids_priority_queue.remove(var+self.num_vars)
             self.lrb_phase[var] = value_to_set
 
         else:  # LRB
@@ -84,11 +80,8 @@ class Decider:
             if var == -1:
                 return -1, None
             value_to_set = bool(self.lrb_phase[var])
-            # also change vsids
-            # self.vsids_priority_queue.remove(var)
-            # self.vsids_priority_queue.remove(var + self.num_vars)
-            # also change CHB
-            # self.chb_priority_queue.remove(var)
+            self.vsids_priority_queue.remove(var)
+            self.vsids_priority_queue.remove(var+self.num_vars)
             self.chb_phase[var] = value_to_set
 
         self.plays = set([var])
@@ -101,10 +94,10 @@ class Decider:
         return var, value_to_set
     
     def unary_update(self,var):
-        if self.curr_decider == "VSIDS":
-            self.vsids_priority_queue.remove(var)
-            self.vsids_priority_queue.remove(var+self.num_vars)
-        elif self.curr_decider == "CHB":
+        # if self.curr_decider == "VSIDS":
+        self.vsids_priority_queue.remove(var)
+        self.vsids_priority_queue.remove(var+self.num_vars)
+        if self.curr_decider == "CHB":
             self.chb_priority_queue.remove(var)          
 
 
@@ -118,8 +111,8 @@ class Decider:
         for lit in learned_clause:
             # update vsids
             self.vsids_scores[lit] += self.vsids_incr
-            if self.curr_decider == "VSIDS":
-                self.vsids_priority_queue.increase_update(lit, self.vsids_incr)
+            # if self.curr_decider == "VSIDS":
+            self.vsids_priority_queue.increase_update(lit, self.vsids_incr)
             # update chb
             var = self.get_var_from_literal(lit)
             self.lastConflict[var] = self.numConflicts
@@ -141,13 +134,13 @@ class Decider:
         # called when var is implied in bcp
         # value_to_set is needed to keep the chb_phase
         # update vsids
-        if self.curr_decider == "VSIDS":
-            self.vsids_priority_queue.remove(var)
-            self.vsids_priority_queue.remove(var+self.num_vars)
+        # if self.curr_decider == "VSIDS":
+        self.vsids_priority_queue.remove(var)
+        self.vsids_priority_queue.remove(var+self.num_vars)
         # update chb
-        elif self.curr_decider == "CHB":
+        if self.curr_decider == "CHB":
             self.chb_priority_queue.remove(var)
-        else:
+        elif self.curr_decider == "LRB":
             self.lrb_priority_queue.remove(var)
 
         self.chb_phase[var] = int(value_to_set)
@@ -172,20 +165,21 @@ class Decider:
             if self.curr_decider == "CHB":
                 self.chb_priority_queue.increase_update(v, delta)
 
-    def backtrack_update(self, var_list):
+    def backtrack_update(self, var_list, restart_flag):
         # called when backtrack unassigns some vars, put them in priority_queue
         # var_list: vars unassigned
         for var in var_list:
-            # update vsids
-            if self.curr_decider == "VSIDS":
+            if not restart_flag:
+                # update vsids
+                # if self.curr_decider == "VSIDS":
                 self.vsids_priority_queue.add(var, self.vsids_scores[var])
                 self.vsids_priority_queue.add(var + self.num_vars, self.vsids_scores[var + self.num_vars])
-            # update chb
-            elif self.curr_decider == "CHB":
-                self.chb_priority_queue.add(var, self.chb_scores[var])
-            # update lrb, which corresponds to OnUnassign
-            else:
-                self.lrb_priority_queue.add(var, self.lrb_scores[var])
+                # update chb
+                if self.curr_decider == "CHB":
+                    self.chb_priority_queue.add(var, self.chb_scores[var])
+                # update lrb, which corresponds to OnUnassign
+                elif self.curr_decider == "LRB":
+                    self.lrb_priority_queue.add(var, self.lrb_scores[var])
             interval = self.LearntCounter - self.assigned[var]
             if interval > 0:
                 r = self.participated[var]/interval
@@ -196,12 +190,10 @@ class Decider:
                     self.lrb_priority_queue.increase_update(var, delta)
 
     def change_heuristic(self, new_heuristic):
-        if self.curr_decider == new_heuristic:
-            return
         self.curr_decider = new_heuristic
-        if self.curr_decider == "VSIDS":
-            self.vsids_priority_queue = PriorityQueue(self.vsids_scores)
-        elif self.curr_decider == "CHB":
+        # if self.curr_decider == "VSIDS":
+        #     self.vsids_priority_queue = PriorityQueue(self.vsids_scores)
+        if self.curr_decider == "CHB":
             self.chb_priority_queue = PriorityQueue(self.chb_scores)
-        else:
+        elif self.curr_decider == "LRB":
             self.lrb_priority_queue = PriorityQueue(self.lrb_scores)

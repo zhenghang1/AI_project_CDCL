@@ -4,23 +4,23 @@ import numpy as np
 
 class Restarter:
 
-    def __init__(self, restarter, deciders=["VSIDS", "CHB", "LRB"]) -> None:
+    def __init__(self, restarter, decider="CHB") -> None:
         if restarter is None or restarter not in ["GEOMETRIC", "LUBY", "NO_RESTART"]:
             raise ValueError('The restarter must be one from the list ["GEOMETRIC","LUBY","NO_RESTART"]')
 
         # This stores the number of conflicts before restart and is set to 0 at each restart
         self.conflicts_count = 0
         self.conflict_limit = 0
-        self.deciders = deciders
-        self.counts = [0] * len(deciders)
-        self.expected_reward = [0] * len(deciders)
-        self.last_arm = 0
+        self.deciders = ["LRB", "CHB","VSIDS"]
+        self.counts = [0] * len(self.deciders)
+        self.expected_reward = [0] * len(self.deciders)
+        self.last_arm = self.deciders.index(decider)
         self.num_restarts = 0
         self.decisions = 0
         self.decidedVars = set()
         if restarter == "GEOMETRIC":
             # If the GEOMETRIC restart strategy is used, then initialize the conflict limit with 512
-            self.conflict_limit = 512
+            self.conflict_limit = 1024
 
             # This is the limit multiplier by which the conflict limit will be multiplied after each restart
             self.limit_mult = 2
