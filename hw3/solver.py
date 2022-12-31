@@ -1,4 +1,4 @@
-from SAT_sr import SAT
+from SAT import SAT
 import argparse
 from utils import Test
 import time
@@ -9,6 +9,8 @@ parser.add_argument('-d','--decider',default='VSIDS',type=str,help='type of deci
 parser.add_argument('-r','--restarter',default='LUBY',type=str,help='type of restarter, should be one of ["GEOMETRIC","LUBY","NO_RESTART"]')
 parser.add_argument('-b','--bve',default='False',type=str,help='Boolean flag indicating whether do bve or not, should be one of [""True","False"]')
 parser.add_argument('-t','--test',default='True',type=bool,help='Boolean flag indicating whether taking a test or not, should be one of [""True","False"]')
+parser.add_argument('--base',default='1024',type=int,help='Restart Base in Restarter')
+
 
 args = parser.parse_args()
 
@@ -24,10 +26,11 @@ if __name__ == "__main__":
     restarter_to_use = args.restarter
 
     bve_flag = args.bve
+    base = args.base
 
     # Create the SAT class and solve!
     # sat = SAT(decider_to_use, restarter_to_use, bve_flag)
-    sat = SAT(decider_to_use, restarter_to_use, bve_flag)
+    sat = SAT(decider_to_use, restarter_to_use, bve_flag, base)
     sat.solve(input_file_name)
 
     if args.test:

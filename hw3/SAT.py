@@ -29,7 +29,7 @@ class AssignedNode:
 
 
 class SAT:
-    def __init__(self, decider="VSIDS", restarter="NO_RESTART", bve_flag="False"):
+    def __init__(self, decider="VSIDS", restarter="NO_RESTART", bve_flag="False", base=1024):
         '''
         Constructor for the SAT class
 
@@ -48,13 +48,13 @@ class SAT:
         # a dict: clause -> [lit1, lit2]
         self.c2l_watch = {}
         # a dict to store the assignnode, with (var,node) as (key,value)
-        self._variable_to_assignment_nodes = {}
+        self.v2a_watch = {}
         # a list store the node in the order of their assignment
         self._assignment = []
         # decider to use
         self._decider = decider
         # restarter to use
-        self._restarter = Restarter(restarter,decider)
+        self._restarter = Restarter(restarter,decider,base)
         # the Statistics object to store basic information
         # bve flag
         self._bve_flag = bve_flag
@@ -87,14 +87,14 @@ class SAT:
             else:
                 var = int(lit)
 
-            if var not in self._variable_to_assignment_nodes:
+            if var not in self.v2a_watch:
                 self.stats._num_implications += 1
                 node = AssignedNode(var, value_to_set, 0, None)
-                self._variable_to_assignment_nodes[var] = node
+                self.v2a_watch[var] = node
                 self._assignment.append(node)
                 node.index = len(self._assignment) - 1
             else:
-                node = self._variable_to_assignment_nodes[var]
+                node = self.v2a_watch[var]
                 if node.value != value_to_set:
                     self.stats._result = "UNSAT"
                     return 0
@@ -163,7 +163,7 @@ class SAT:
         self.stats._bve_flag = True
         clause_to_be_del = set()
         for var in range(1,self._num_vars+1):
-            if var in self._variable_to_assignment_nodes:
+            if var in self.v2a_watch:
                 continue
             S_plus = self.bve_watch.setdefault(var,set())
             S_minus = self.bve_watch.setdefault(var + self._num_vars,set())
@@ -216,7 +216,7 @@ class SAT:
         self._restarter.decidedVars.add(var)
 
         new_node = AssignedNode(var, value_to_set, self._level, None)
-        self._variable_to_assignment_nodes[var] = new_node
+        self.v2a_watch[var] = new_node
         self._assignment.append(new_node)
         new_node.index = len(self._assignment) - 1
 
@@ -269,8 +269,8 @@ class SAT:
                 other_watch_var = self.get_var_from_literal(other_watch_literal)
                 is_negative_other = self.is_negative_literal(other_watch_literal)
 
-                if other_watch_var in self._variable_to_assignment_nodes:
-                    value_assgned = self._variable_to_assignment_nodes[
+                if other_watch_var in self.v2a_watch:
+                    value_assgned = self.v2a_watch[
                         other_watch_var].value
                     if (is_negative_other and value_assgned is False) or (
                             not is_negative_other and value_assgned is True):
@@ -283,11 +283,11 @@ class SAT:
                     if lit not in watch_list_of_clause:
                         var_of_lit = self.get_var_from_literal(lit)
 
-                        if var_of_lit not in self._variable_to_assignment_nodes:
+                        if var_of_lit not in self.v2a_watch:
                             new_literal_to_watch = lit
                             break
                         else:
-                            node = self._variable_to_assignment_nodes[var_of_lit]
+                            node = self.v2a_watch[var_of_lit]
                             is_negative = self.is_negative_literal(lit)
                             if (is_negative and node.value is False) or (
                                     not is_negative and node.value is True):
@@ -305,12 +305,12 @@ class SAT:
                                                         []).append(clause_id)
 
                 else:
-                    if other_watch_var not in self._variable_to_assignment_nodes:
+                    if other_watch_var not in self.v2a_watch:
                         value_to_set = not is_negative_other
                         assign_var_node = AssignedNode(other_watch_var,
                                                     value_to_set, self._level,
                                                     clause_id)
-                        self._variable_to_assignment_nodes[
+                        self.v2a_watch[
                             other_watch_var] = assign_var_node
 
                         self._assignment.append(assign_var_node)
@@ -364,7 +364,7 @@ class SAT:
         cand = -1
         for lit in clause:
             var = self.get_var_from_literal(lit)
-            node = self._variable_to_assignment_nodes[var]
+            node = self.v2a_watch[var]
             if node.level == level:
                 counter += 1
                 if node.index > maxi:
@@ -385,7 +385,7 @@ class SAT:
 
         for lit in conflict_clause:
             var = self.get_var_from_literal(lit)
-            assigned_node = self._variable_to_assignment_nodes[var]
+            assigned_node = self.v2a_watch[var]
             if assigned_node.level == conflict_level:
                 literal_at_conflict_level = lit
             else:
@@ -453,8 +453,8 @@ class SAT:
             reasons = []
             for lit in conflict_clause:
                 var = self.get_var_from_literal(lit)
-                if var in self._variable_to_assignment_nodes:
-                    node = self._variable_to_assignment_nodes[var]
+                if var in self.v2a_watch:
+                    node = self.v2a_watch[var]
                     if node.clause is None:
                         reasons += [var]
                     else:
@@ -516,7 +516,7 @@ class SAT:
             if self._assignment[itr].level <= backtrack_level:
                 break
             else:
-                del self._variable_to_assignment_nodes[
+                del self.v2a_watch[
                     self._assignment[itr].var]
 
                 node = self._assignment.pop(itr)
@@ -530,7 +530,7 @@ class SAT:
         self.sat_decider.backtrack_update(var_list,restart_flag)
 
         if node_to_add:
-            self._variable_to_assignment_nodes[node_to_add.var] = node_to_add
+            self.v2a_watch[node_to_add.var] = node_to_add
 
             self._assignment.append(node_to_add)
             node_to_add.index = len(self._assignment) - 1
@@ -642,8 +642,8 @@ class SAT:
             self.stats._output_assignment_file = assgn_file_name
 
             self.assignment_dict = {}
-            for var in self._variable_to_assignment_nodes:
-                self.assignment_dict[var] = self._variable_to_assignment_nodes[var].value
+            for var in self.v2a_watch:
+                self.assignment_dict[var] = self.v2a_watch[var].value
 
             # the assignment file
             assgn_file = open(assgn_file_name, "w")

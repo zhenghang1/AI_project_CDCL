@@ -4,7 +4,7 @@ import numpy as np
 
 class Restarter:
 
-    def __init__(self, restarter, decider="CHB") -> None:
+    def __init__(self, restarter, decider="CHB", base=1024) -> None:
         if restarter is None or restarter not in ["GEOMETRIC", "LUBY", "NO_RESTART"]:
             raise ValueError('The restarter must be one from the list ["GEOMETRIC","LUBY","NO_RESTART"]')
 
@@ -16,11 +16,12 @@ class Restarter:
         self.expected_reward = [0] * len(self.deciders)
         self.last_arm = self.deciders.index(decider)
         self.num_restarts = 0
+        self.base = base
         self.decisions = 0
         self.decidedVars = set()
         if restarter == "GEOMETRIC":
             # If the GEOMETRIC restart strategy is used, then initialize the conflict limit with 512
-            self.conflict_limit = 1024
+            self.conflict_limit = self.base
 
             # This is the limit multiplier by which the conflict limit will be multiplied after each restart
             self.limit_mult = 2
@@ -29,7 +30,7 @@ class Restarter:
             # If the LUBY restart strategy is used
 
             # We set base (b) as 512 here
-            luby_base = 1024
+            luby_base = self.base
             self.luby = LubyGenerator(luby_base)
 
             # Reset the luby sequencer to initialize it
@@ -69,7 +70,6 @@ class Restarter:
     def choose(self):
         # call if restart, namely when update_state() returns True
         # return a decider name
-        # decidedVars: len(assignment)
         self.num_restarts += 1
         r = np.log2(self.decisions) / len(self.decidedVars)
         self.decisions = 0
